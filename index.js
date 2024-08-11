@@ -9,7 +9,7 @@ app.use(express.static('public'))
 // app.use(express.urlencoded({ extended: true }))
 app.use(bodyParser.urlencoded({ extended: false }));
 const users = []
-const exercises = []
+let exercises = []
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
@@ -22,24 +22,40 @@ app.get('/api/users', function (req, res) {// não funciona /api/users se mudar 
 app.get('/api/users/:_id/logs', (req, res) => {
 
   const { _id } = req.params
-  const { limit, from, to } = req.query
+  const { from, to } = req.query
+  let limit = Number(req.query.limit)
   const user = users.find(user => user._id === _id)
   if (!user) {
     res.status(404).json({ error: 'user not found' })
   } else {
-    const exercises = user.exercises
 
-    if (!from && !to) {
-      res.json({ _id, username: user.username, count: exercises.length, log: exercises })
-    } else if (from && !to) {
-      const filteredExercises = exercises.filter(exercise => new Date(exercise.date) >= new Date(from))
+    if (!from && !to && !limit) {
+      
+      res.json({username: user.username, count: user.exercises.length, _id,  log: user.exercises })
+    } else if (from && !to && !limit) {
+      const filteredExercises = user.exercises.filter(exercise => new Date(exercise.date) >= new Date(from))
       res.json({ _id, username: user.username, count: filteredExercises.length, log: filteredExercises })
-    } else if (!from && to) {
-      const filteredExercises = exercises.filter(exercise => new Date(exercise.date) <= new Date(to))
+    } else if (!from && to && !limit) {
+      const filteredExercises = user.exercises.filter(exercise => new Date(exercise.date) <= new Date(to))
       res.json({ _id, username: user.username, count: filteredExercises.length, log: filteredExercises })
-    } else {
-      const filteredExercises = exercises.filter(exercise => new Date(exercise.date) >= new Date(from) && new Date(exercise.date) <= new Date(to))
+    } else if (from && to && !limit) {
+      const filteredExercises = user.exercises.filter(exercise => new Date(exercise.date) >= new Date(from) && new Date(exercise.date) <= new Date(to))
       res.json({ _id, username: user.username, count: filteredExercises.length, log: filteredExercises })
+    } else if (!from && !to && limit) {
+      let filteredExercises = []
+      if (user.exercises.length<limit) limit = user.exercises.length
+      for (let i=0; i<limit; i++){
+        filteredExercises.push(user.exercises[i])
+      }
+      res.json({ _id, username: user.username, count: filteredExercises.length, log: filteredExercises })
+    }else {
+      const filteredExercises = user.exercises.filter(exercise => new Date(exercise.date) >= new Date(from) && new Date(exercise.date) <= new Date(to))
+      if(filteredExercises.length<limit) limit = filteredExercises.length
+      const limitFilteredExercises = [];
+      for(let i = 0; i < limit; i++) {
+        limitFilteredExercises.push(filteredExercises[i])
+      }
+      res.json({ _id, username: user.username, count: limitFilteredExercises.length, log: limitFilteredExercises })
     }
   }
   res.send("OK")
@@ -50,7 +66,6 @@ app.post('/api/users', (req, res) => {
   const user = { username, _id }
   users.push(user)
 
-    // const users = JSON.parse(fs.readFileSync('users.json', 'utf8'));
   if (!username) {
     res.status(400).json({ error: 'username is required' })
   } else {
@@ -62,7 +77,8 @@ app.post('/api/users', (req, res) => {
 
 app.post('/api/users/:_id/exercises', (req, res) => {
   
-  const { description, duration } = req.body
+  const { description } = req.body
+  const duration = Number(req.body.duration)
   var date = req.body.date;
   if (!date) {date = new Date();}
   const { _id } = req.params
@@ -72,23 +88,25 @@ app.post('/api/users/:_id/exercises', (req, res) => {
     res.status(400).json({ error: 'duration is required' })
   } else {
     date = new Date(date).toDateString();
+    console.log(new Date(date));
+    
     const exercise = { description, duration, date }
     const user = users.find(user => user._id === _id)
     const username = user.username
     exercises.push(exercise)
-    user.exercise = exercises;
-    const newUser = { username, description, duration, date, _id }
+    // console.log(exercises);
     
-    // res.status(201).json({ username: _id, description, duration, date })
-    // res.status(201).json({ user, username, description, duration, date, _id })
-
-    res.status(201).json(newUser)
+    if (user.exercises) {
+      user.exercises.push(exercise)
+    }else {
+      user.exercises = exercises
+    }
+    exercises = []
+    // res.status(201).json({ user })
+    res.json({ username, description, duration, date, _id })
     
   }
 })
-
-
-
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
