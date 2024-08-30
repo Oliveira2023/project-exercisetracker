@@ -77,35 +77,40 @@ app.post('/api/users', (req, res) => {
 
 app.post('/api/users/:_id/exercises', (req, res) => {
   
-  const { description } = req.body
-  const duration = Number(req.body.duration)
-  var date = req.body.date;
-  if (!date) {date = new Date();}
-  const { _id } = req.params
+  let { description } = req.body
   if (!description) {
-    res.status(400).json({ error: 'description is required' })
-  } else if (!duration) {
-    res.status(400).json({ error: 'duration is required' })
-  } else {
-    date = new Date(date).toDateString();
-    console.log(new Date(date));
-    
-    const exercise = { description, duration, date }
-    const user = users.find(user => user._id === _id)
-    const username = user.username
-    exercises.push(exercise)
-    // console.log(exercises);
-    
-    if (user.exercises) {
-      user.exercises.push(exercise)
-    }else {
-      user.exercises = exercises
-    }
-    exercises = []
-    // res.status(201).json({ user })
-    res.json({ username, description, duration, date, _id })
-    
+    description = 'No description'
+    // res.status(400).json({ error: 'description is required' })
   }
+
+  let duration = Number(req.body.duration)
+  if (!duration) {
+    duration = 60
+    // res.status(400).json({ error: 'duration is required' })
+  }
+  let date = req.body.date;
+  if (!date) {date = new Date();}
+  date = new Date(date).toDateString();
+
+  const { _id } = req.params
+      
+  const exercise = { date, duration, description }
+  const user = users.find(user => user._id === _id)
+  if (!user) {
+    res.status(404).json({ error: 'user not found' })
+  }
+  let username = user.username
+  exercises.push(exercise)
+  console.log(exercises);
+  
+  if (user.exercises) {
+    user.exercises.push(exercise)
+  }else {
+    user.exercises = exercises
+  }
+  exercises = []
+
+  res.json({ _id, username, date, duration, description})
 })
 
 const listener = app.listen(process.env.PORT || 3000, () => {
