@@ -2,12 +2,30 @@ const express = require('express')
 const app = express()
 const cors = require('cors')
 const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 require('dotenv').config()
 
 app.use(cors())
 app.use(express.static('public'))
-// app.use(express.urlencoded({ extended: true }))
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+mongoose.connect(process.env.MONGO_URI);
+
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true },
+  exercises: [
+    { 
+      description: String, 
+      duration: Number,
+      date: Date
+    }
+  ]
+})
+
+const User = mongoose.model('User', userSchema);
+
+
 const users = []
 let exercises = []
 app.get('/', (req, res) => {
@@ -75,43 +93,81 @@ app.post('/api/users', (req, res) => {
   }
 })
 
-app.post('/api/users/:_id/exercises', (req, res) => {
+// app.post('/api/users/:_id/exercises', async (req, res) => {
   
-  let { description } = req.body
-  if (!description) {
-    description = 'No description'
-    // res.status(400).json({ error: 'description is required' })
-  }
+//   let { description } = req.body
+//   if (!description) {
+//     description = 'No description'
+//     // res.status(400).json({ error: 'description is required' })
+//   }
 
-  let duration = Number(req.body.duration)
-  if (!duration) {
-    duration = 60
-    // res.status(400).json({ error: 'duration is required' })
-  }
-  let date = req.body.date;
-  if (!date) {date = new Date();}
-  date = new Date(date).toDateString();
+//   let duration = Number(req.body.duration)
+//   if (!duration) {
+//     duration = 60
+//     // res.status(400).json({ error: 'duration is required' })
+//   }
+//   let date = req.body.date;
+//   if (!date) {date = new Date();}
+//   date = new Date(date).toDateString();
 
-  const { _id } = req.params
+//   const { _id } = req.params
       
-  const exercise = { date, duration, description }
-  const user = users.find(user => user._id === _id)
-  if (!user) {
-    res.status(404).json({ error: 'user not found' })
-  }
-  let username = user.username
-  exercises.push(exercise)
-  console.log(exercises);
+//   const exercise = { date, duration, description }
+//   const user = users.find(user => user._id === _id)
+//   if (!user) {
+//     res.status(404).json({ error: 'user not found' })
+//   }
+//   let username = user.username
+//   // exercises.push(exercise)
+//   console.log(exercises);
   
+//   // user.exercises.push(exercise)
+  
+//   if (user.exercises) {
+//     user.exercises.push(exercise)
+//   }else {
+//     user.exercises = [exercise]
+//   }
+//   // exercises = []
+//   // await user.save();
+//   res.json({
+//     _id : user._id,
+//     username : user.username,
+//     date : exercise.date,
+//     duration : exercise.duration,
+//     description : exercise.description
+//   })
+// })
+
+app.post('/api/users/:_id/exercises', (req, res) => {
+  const userId = req.params._id;
+  const { description, duration, date } = req.body;
+
+  const user = users.find(u => u._id === userId);
+  if (!user) {
+    return res.status(404).send('User not found');
+  }
+
+  const exercise = {
+    description: description || 'No description',
+    duration: Number(duration) || 60,
+    date: date ? new Date(date).toDateString() : new Date().toDateString()
+  };
+
   if (user.exercises) {
     user.exercises.push(exercise)
   }else {
-    user.exercises = exercises
+    user.exercises = [exercise]
   }
-  exercises = []
 
-  res.json({ _id, username, date, duration, description})
-})
+  res.json({
+    _id: user._id,
+    username: user.username,
+    description: exercise.description,
+    duration: exercise.duration,
+    date: exercise.date
+  });
+});
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
